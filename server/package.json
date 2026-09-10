@@ -1,0 +1,28 @@
+{
+  "name": "sidmegle-server",
+  "version": "1.0.0",
+  "description": "StrangerConnect random 1-to-1 video chat backend",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.2.0",
+    "helmet": "^7.1.0",
+    "mongoose": "^8.4.0",
+    "morgan": "^1.10.0",
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.8.3",
+    "uuid": "^9.0.1",
+    "validator": "^13.12.0",
+    "xss": "^1.0.14"
+  }
+}

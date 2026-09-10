@@ -1,0 +1,3 @@
+[DB] No MONGODB_URI provided. Running WITHOUT database (reports/blocks will be in-memory only).
+[Server] StrangerConnect backend listening on :5000
+[Server] CLIENT_URL=http://localhost:5173
