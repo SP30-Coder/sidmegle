@@ -7,7 +7,7 @@ import ReportModal from './ReportModal';
 import { useMediaDevices } from '../hooks/useMediaDevices';
 import { useWebRTC } from '../hooks/useWebRTC';
 
-export default function VideoChat({ socket, interests, onLeave }) {
+export default function VideoChat({ socket, interests = [], gender, preferredGender = 'any', onLeave }) {
   const { stream, error: mediaError, cameraOn, micOn, loading, requestMedia, toggleCamera, toggleMic, stopAll } = useMediaDevices();
   const [status, setStatus] = useState('idle');
   const [roomId, setRoomId] = useState(null);
@@ -25,8 +25,8 @@ export default function VideoChat({ socket, interests, onLeave }) {
   const joinQueue = useCallback(() => {
     if (!socket) return;
     setMessages([]); setPeerSessionId(null); setRoomId(null); setStatus('searching');
-    socket.emit('joinQueue', { interests });
-  }, [socket, interests]);
+    socket.emit('joinQueue', { interests, gender, preferredGender });
+  }, [socket, interests, gender, preferredGender]);
   useEffect(() => { if (ready && stream && status === 'idle') joinQueue(); }, [ready, stream, status, joinQueue]);
   useEffect(() => {
     if (!socket) return;
@@ -38,7 +38,7 @@ export default function VideoChat({ socket, interests, onLeave }) {
     const onLeft = () => { cleanup(); setRoomId(null); setPeerSessionId(null); };
     const onGone = () => {
       cleanup(); setRoomId(null); setPeerSessionId(null); setMessages([]); setStatus('disconnected');
-      setTimeout(() => { if (socket.connected) { setStatus('searching'); socket.emit('joinQueue', { interests }); } }, 1500);
+      setTimeout(() => { if (socket.connected) { setStatus('searching'); socket.emit('joinQueue', { interests, gender, preferredGender }); } }, 1500);
     };
     const onChat = ({ text, at }) => setMessages((p) => [...p, { text, from: 'stranger', at }]);
     const onTyping = ({ isTyping }) => setPeerTyping(!!isTyping);
@@ -55,7 +55,7 @@ export default function VideoChat({ socket, interests, onLeave }) {
       socket.off('queueError', onErr); socket.off('chatError', onErr);
       socket.off('reportResult', onErr); socket.off('blockResult', onErr);
     };
-  }, [socket, interests, cleanup]);
+  }, [socket, interests, gender, preferredGender, cleanup]);
   useEffect(() => { if (roomId && stream) { setStatus('connecting'); start(); } }, [roomId, stream, initiator, start]);
   useEffect(() => {
     if (rtcState === 'connected') setStatus('connected');
@@ -89,7 +89,7 @@ export default function VideoChat({ socket, interests, onLeave }) {
             <VideoPlayer stream={remoteStream} label="Stranger" placeholder="Waiting for stranger..." />
             {(status === 'searching' || status === 'disconnected' || status === 'found' || status === 'connecting') && <Matchmaking status={status} />}
           </div>
-          <div className="video-wrap small" id="my-video" onDoubleClick={() => fs('my-video')}>
+          <div className="video-wrap" id="my-video" onDoubleClick={() => fs('my-video')}>
             <VideoPlayer stream={stream} muted mirrored label="You" placeholder="Camera off" />
           </div>
           <div className="status-line">Status: <b>{status}</b>{rtcState !== 'idle' && <span> - WebRTC: {rtcState}</span>}</div>

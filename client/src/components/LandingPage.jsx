@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 
-const ALL = ['gaming','music','movies','technology','sports','study','travel','food','art','fitness','books','random'];
+const ALL = ['gaming', 'music', 'movies', 'technology', 'sports', 'study', 'travel', 'food', 'art', 'fitness', 'books', 'random'];
 
 export default function LandingPage({ onStart, online }) {
   const [interests, setInterests] = useState([]);
+  const [gender, setGender] = useState('');
+  const [preferredGender, setPreferredGender] = useState('any');
   const toggle = (v) => setInterests((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v].slice(0, 5)));
 
   return (
@@ -13,6 +15,23 @@ export default function LandingPage({ onStart, online }) {
         <p className="tagline">Talk to strangers around the world.</p>
         <p className="sub">Random 1-to-1 video, audio and text chat. No account needed. Be kind, stay safe.</p>
         {typeof online?.count === 'number' && <div className="pill">🟢 {online.count} online now</div>}
+        <div className="gender-settings">
+          <label>Your gender
+            <select value={gender} onChange={(e) => setGender(e.target.value)}>
+              <option value="">Select gender</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </label>
+          <label>Chat with
+            <select value={preferredGender} onChange={(e) => setPreferredGender(e.target.value)}>
+              <option value="any">Anyone</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </label>
+        </div>
+        <p className="gender-note">Gender is self-declared. Report anyone who misrepresents it.</p>
         <div className="interests">
           <div className="interests-title">Interests (optional, pick up to 5)</div>
           <div className="chips">
@@ -21,7 +40,7 @@ export default function LandingPage({ onStart, online }) {
             ))}
           </div>
         </div>
-        <button className="btn-primary big" onClick={() => onStart(interests)}>Start Chatting</button>
+        <button className="btn-primary big" disabled={!gender} onClick={() => onStart({ interests, gender, preferredGender })}>Start Chatting</button>
         <div className="safety">
           <h4>🔒 Safety first</h4>
           <ul>

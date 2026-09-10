@@ -6,6 +6,7 @@ const REASONS = [
   { v: 'hate-speech', l: 'Hate speech' },
   { v: 'spam', l: 'Spam' },
   { v: 'threats', l: 'Threatening behavior' },
+  { v: 'gender-misrepresentation', l: 'Gender misrepresentation' },
   { v: 'other', l: 'Other' },
 ];
 

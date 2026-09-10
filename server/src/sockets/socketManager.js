@@ -27,6 +27,8 @@ function registerSocketManager(io) {
     const sessionId = uuidv4();
     socket.data.sessionId = sessionId;
     socket.data.interests = [];
+    socket.data.gender = null;
+    socket.data.preferredGender = 'any';
     socket.emit('session', { sessionId });
     broadcastOnline();
 
@@ -63,6 +65,9 @@ function registerSocketManager(io) {
           details: sanitizeText(details || '', 500),
           roomId: roomId || '',
         });
+        if (reason === 'gender-misrepresentation') {
+          await blockService.addBlock(sessionId, target);
+        }
         socket.emit('reportResult', { ok: true, message: 'Thanks. Your report was received.' });
       } catch (e) {
         socket.emit('reportResult', { ok: false, message: e.message || 'Could not submit report.' });

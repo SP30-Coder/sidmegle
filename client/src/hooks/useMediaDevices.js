@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+const AUDIO_CONSTRAINTS = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+  channelCount: { ideal: 1 },
+  sampleRate: { ideal: 48000 },
+};
+
 export function useMediaDevices() {
   const [stream, setStream] = useState(null);
   const [error, setError] = useState(null);
@@ -19,7 +27,7 @@ export function useMediaDevices() {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
-      const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: AUDIO_CONSTRAINTS });
       streamRef.current = s;
       setStream(s);
       setCameraOn(true);
@@ -40,7 +48,7 @@ export function useMediaDevices() {
       else if (e?.message === 'UNSUPPORTED') msg = 'This browser does not support video chat. Please use Chrome, Edge or Firefox.';
       // graceful fallback: try audio-only, then video-only
       try {
-        const audioOnly = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+        const audioOnly = await navigator.mediaDevices.getUserMedia({ video: false, audio: AUDIO_CONSTRAINTS });
         streamRef.current = audioOnly;
         setStream(audioOnly);
         setCameraOn(false);

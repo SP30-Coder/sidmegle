@@ -2,24 +2,28 @@ const { io } = require('socket.io-client');
 
 const URL = process.env.TEST_URL || 'http://localhost:5000';
 
-function makeClient(name) {
+function makeClient(name, gender) {
   return new Promise((resolve, reject) => {
     const s = io(URL, { transports: ['websocket'] });
     const state = { name, socket: s, session: null, room: null, initiator: null, chat: [], strangerGone: false };
     const timer = setTimeout(() => reject(new Error(name + ' timeout')), 10000);
     s.on('session', (d) => { state.session = d.sessionId; });
-    s.on('queueJoined', () => {});
+    s.on('queueJoined', () => { });
     s.on('matchFound', (d) => { state.room = d.roomId; state.initiator = d.initiator; clearTimeout(timer); resolve(state); });
     s.on('chatMessage', (m) => state.chat.push(m));
     s.on('strangerDisconnected', () => { state.strangerGone = true; });
-    s.on('connect', () => s.emit('joinQueue', { interests: ['gaming'] }));
+    s.on('connect', () => s.emit('joinQueue', {
+      interests: ['gaming'],
+      gender,
+      preferredGender: 'any',
+    }));
     s.on('connect_error', (e) => { clearTimeout(timer); reject(e); });
   });
 }
 
 (async () => {
   console.log('TEST 1: matchmaking two clients...');
-  const [A, B] = await Promise.all([makeClient('A'), makeClient('B')]);
+  const [A, B] = await Promise.all([makeClient('A', 'male'), makeClient('B', 'female')]);
   console.log('PASS match:', A.room === B.room ? 'same room ' + A.room : 'FAIL rooms differ');
   console.log('initiators:', A.initiator, B.initiator);
 

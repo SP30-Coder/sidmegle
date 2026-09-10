@@ -1,19 +1,27 @@
 const roomService = require('../services/roomService');
 const matchmaking = require('../services/matchmakingService');
-const { sanitizeInterests } = require('../utils/validation');
+const { sanitizeInterests, sanitizeGender, sanitizeGenderPreference } = require('../utils/validation');
 
 function registerMatchmaking(io) {
   return {
     async joinQueue(socket, payload = {}) {
       const sessionId = socket.data.sessionId;
       const interests = sanitizeInterests(payload.interests);
+      const gender = sanitizeGender(payload.gender);
+      const preferredGender = sanitizeGenderPreference(payload.preferredGender);
+      if (!gender) {
+        socket.emit('queueError', { message: 'Select your gender before searching.' });
+        return;
+      }
       socket.data.interests = interests;
+      socket.data.gender = gender;
+      socket.data.preferredGender = preferredGender;
       const existing = roomService.getRoomOf(socket.id);
       if (existing) {
         socket.emit('queueError', { message: 'You are already in a chat.' });
         return;
       }
-      const res = matchmaking.enqueue(socket.id, sessionId, interests);
+      const res = matchmaking.enqueue(socket.id, sessionId, interests, gender, preferredGender);
       if (!res.ok) {
         socket.emit('queueError', { message: res.error });
         return;
@@ -41,10 +49,12 @@ function registerMatchmaking(io) {
         socket.emit('leftRoom', { roomId: room.id });
       }
       const interests = socket.data.interests || [];
+      const gender = socket.data.gender || null;
+      const preferredGender = socket.data.preferredGender || 'any';
       const sessionId = socket.data.sessionId;
       matchmaking.removeFromQueue(socket.id);
       await new Promise((r) => setTimeout(r, 300));
-      const res = matchmaking.enqueue(socket.id, sessionId, interests);
+      const res = matchmaking.enqueue(socket.id, sessionId, interests, gender, preferredGender);
       if (!res.ok) {
         socket.emit('queueError', { message: res.error });
         return;

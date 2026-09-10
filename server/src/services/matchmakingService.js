@@ -6,8 +6,8 @@
  */
 const roomService = require('./roomService');
 
-const queue = []; // [{ socketId, sessionId, interests, enqueuedAt }]
-const socketMeta = new Map(); // socketId -> { sessionId, interests }
+const queue = []; // [{ socketId, sessionId, interests, gender, preferredGender, enqueuedAt }]
+const socketMeta = new Map(); // socketId -> { sessionId, interests, gender, preferredGender }
 const recentPairs = new Map(); // pairKey -> timestamp (avoid immediate re-match)
 const lastMatchAt = new Map(); // socketId -> timestamp (rate limit)
 
@@ -24,7 +24,7 @@ function pairKey(a, b) {
   return [a, b].sort().join('|');
 }
 
-function enqueue(socketId, sessionId, interests = []) {
+function enqueue(socketId, sessionId, interests = [], gender = null, preferredGender = 'any') {
   const now = Date.now();
   const last = lastMatchAt.get(socketId) || 0;
   if (now - last < QUEUE_RATE_LIMIT_MS) {
@@ -39,8 +39,8 @@ function enqueue(socketId, sessionId, interests = []) {
   }
   // prevent duplicate queue entries
   removeFromQueue(socketId);
-  queue.push({ socketId, sessionId, interests: interests || [], enqueuedAt: now });
-  socketMeta.set(socketId, { sessionId, interests: interests || [] });
+  queue.push({ socketId, sessionId, interests: interests || [], gender, preferredGender, enqueuedAt: now });
+  socketMeta.set(socketId, { sessionId, interests: interests || [], gender, preferredGender });
   return { ok: true };
 }
 
@@ -62,6 +62,12 @@ function hasCommonInterest(a, b) {
   return a.some((x) => b.includes(x));
 }
 
+function genderCompatible(a, b) {
+  const aAcceptsB = a.preferredGender === 'any' || a.preferredGender === b.gender;
+  const bAcceptsA = b.preferredGender === 'any' || b.preferredGender === a.gender;
+  return aAcceptsB && bAcceptsA;
+}
+
 async function tryMatch(io, getSessionId) {
   // Attempt to pair waiting users. Called after each enqueue.
   while (queue.length >= 2) {
@@ -72,6 +78,7 @@ async function tryMatch(io, getSessionId) {
         const A = queue[i];
         const B = queue[j];
         if (A.socketId === B.socketId) continue;
+        if (!genderCompatible(A, B)) continue;
         if (A.sessionId && B.sessionId && A.sessionId === B.sessionId) continue;
         // skip if in a room already (race safety)
         if (roomService.getRoomOf(A.socketId) || roomService.getRoomOf(B.socketId)) continue;
@@ -98,6 +105,7 @@ async function tryMatch(io, getSessionId) {
           const A = queue[i];
           const B = queue[j];
           if (A.socketId === B.socketId) continue;
+          if (!genderCompatible(A, B)) continue;
           if (A.sessionId && B.sessionId && A.sessionId === B.sessionId) continue;
           if (roomService.getRoomOf(A.socketId) || roomService.getRoomOf(B.socketId)) continue;
           found = { i, j, A, B };
