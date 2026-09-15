@@ -21,6 +21,19 @@ function isAtlasSrvDnsError(uri, err) {
   );
 }
 
+function getDatabaseName(uri) {
+  const configuredName = (process.env.MONGODB_DB_NAME || '').trim();
+  if (configuredName) return configuredName;
+
+  try {
+    const parsed = new URL(uri);
+    const pathName = parsed.pathname.replace(/^\/+/, '').trim();
+    return pathName || 'sidmegle';
+  } catch (e) {
+    return 'sidmegle';
+  }
+}
+
 async function connectDB(uri) {
   const mongoUri = (uri || '').trim();
   if (!mongoUri) {
@@ -29,11 +42,13 @@ async function connectDB(uri) {
   }
   try {
     configureDnsServers();
+    const dbName = getDatabaseName(mongoUri);
     mongoose.set('strictQuery', true);
     await mongoose.connect(mongoUri, {
+      dbName,
       serverSelectionTimeoutMS: 5000,
     });
-    console.log('[DB] MongoDB connected');
+    console.log(`[DB] MongoDB connected: ${mongoose.connection.host}/${mongoose.connection.name}`);
     return mongoose.connection;
   } catch (err) {
     console.error('[DB] MongoDB connection failed:', err.message);

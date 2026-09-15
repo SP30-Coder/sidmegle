@@ -9,6 +9,10 @@ function isDbReady() {
   return mongoose.connection && mongoose.connection.readyState === 1;
 }
 
+function requireMongoWrites() {
+  return process.env.REQUIRE_MONGODB_WRITES === 'true' || process.env.NODE_ENV === 'production';
+}
+
 async function createReport({ reporterSessionId, reportedSessionId, reason, details, roomId }) {
   if (typeof reporterSessionId !== 'string' || typeof reportedSessionId !== 'string' || reporterSessionId === reportedSessionId) {
     const err = new Error('Invalid report identities');
@@ -57,11 +61,22 @@ async function createReport({ reporterSessionId, reportedSessionId, reason, deta
         details: doc.details,
         roomId: doc.roomId,
       });
+      console.log(`[Report] Stored in MongoDB: ${saved.collection.name}/${saved._id}`);
       return saved;
     } catch (e) {
       console.warn('[Report] DB write failed:', e.message);
+      if (requireMongoWrites()) {
+        const err = new Error('Could not save report to database.');
+        err.code = 'DB_WRITE_FAILED';
+        throw err;
+      }
       return doc;
     }
+  }
+  if (requireMongoWrites()) {
+    const err = new Error('Database is not connected. Could not save report.');
+    err.code = 'DB_NOT_READY';
+    throw err;
   }
   return doc;
 }
