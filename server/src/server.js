@@ -10,7 +10,8 @@ const matchmaking = require('./services/matchmakingService');
 const config = require('./config/security');
 const { isUuidish, isRoomId, sanitizeText, isValidReason } = require('./utils/validation');
 
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT || 5000);
+const MAX_PORT_RETRIES = process.env.NODE_ENV === 'production' ? 0 : Number(process.env.PORT_RETRY_COUNT || 10);
 const app = express();
 applySecurity(app);
 
@@ -54,10 +55,36 @@ const io = new Server(server, {
 
 registerSocketManager(io);
 
+function listen(port, retriesLeft = MAX_PORT_RETRIES) {
+  const onListening = () => {
+    server.off('error', onError);
+    console.log(`[Server] StrangerConnect backend listening on :${port}`);
+  };
+
+  const onError = (err) => {
+    server.off('listening', onListening);
+    if (err.code === 'EADDRINUSE' && retriesLeft > 0) {
+      const nextPort = port + 1;
+      console.warn(`[Server] Port ${port} is already in use. Trying :${nextPort}...`);
+      listen(nextPort, retriesLeft - 1);
+      return;
+    }
+
+    if (err.code === 'EADDRINUSE') {
+      console.error(`[Server] Port ${port} is already in use. Stop the other process or set PORT to a free port.`);
+    } else {
+      console.error('[Server] Failed to start:', err.message);
+    }
+    process.exit(1);
+  };
+
+  server.once('error', onError);
+  server.once('listening', onListening);
+  server.listen(port);
+}
+
 connectDB(process.env.MONGODB_URI).then(() => {
-  server.listen(PORT, () => {
-    console.log(`[Server] StrangerConnect backend listening on :${PORT}`);
-  });
+  listen(PORT);
 });
 
 app.use((err, req, res, next) => {
