@@ -1,10 +1,15 @@
 const roomService = require('../services/roomService');
 const matchmaking = require('../services/matchmakingService');
 const { sanitizeInterests, sanitizeGender, sanitizeGenderPreference } = require('../utils/validation');
+const { checkRate, validateEnvelope, rejectExtra } = require('./socketSecurity');
 
 function registerMatchmaking(io) {
   return {
     async joinQueue(socket, payload = {}) {
+      if (!validateEnvelope(payload, 4096).ok || !rejectExtra(payload, ['interests', 'gender', 'preferredGender']).ok || !checkRate(socket.id, 'joinQueue', 5, 60000)) {
+        socket.emit('queueError', { message: 'Please slow down and try again.' });
+        return;
+      }
       const sessionId = socket.data.sessionId;
       const interests = sanitizeInterests(payload.interests);
       const gender = sanitizeGender(payload.gender);

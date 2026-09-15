@@ -7,7 +7,7 @@ const ReportSchema = new mongoose.Schema(
     reason: {
       type: String,
       required: true,
-      enum: ['harassment', 'nudity', 'hate-speech', 'spam', 'threats', 'other'],
+      enum: ['harassment', 'nudity', 'hate-speech', 'spam', 'threats', 'gender-misrepresentation', 'other'],
     },
     details: { type: String, default: '', maxlength: 500 },
     roomId: { type: String, default: '' },

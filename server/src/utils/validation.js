@@ -8,6 +8,8 @@ const ALLOWED_INTERESTS = [
 const ALLOWED_REPORT_REASONS = ['harassment', 'nudity', 'hate-speech', 'spam', 'threats', 'gender-misrepresentation', 'other'];
 const ALLOWED_GENDERS = ['male', 'female'];
 const ALLOWED_GENDER_PREFERENCES = ['any', ...ALLOWED_GENDERS];
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ROOM_RE = /^room_[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function sanitizeText(input, maxLen = MAX_MESSAGE_LENGTH) {
   if (typeof input !== 'string') return '';
@@ -40,6 +42,21 @@ function isValidReason(reason) {
   return ALLOWED_REPORT_REASONS.includes(reason);
 }
 
+function isUuidish(value) { return typeof value === 'string' && UUID_RE.test(value); }
+function isRoomId(value) { return typeof value === 'string' && ROOM_RE.test(value); }
+function isSafeSdp(value, maxLength = 20000) {
+  return typeof value === 'string' && value.length <= maxLength && value.includes('v=') && value.includes('m=') && !/[<>]/.test(value);
+}
+function isSafeIceCandidate(value, maxBytes = 5000) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const allowed = ['candidate', 'sdpMid', 'sdpMLineIndex', 'usernameFragment'];
+  if (Object.keys(value).some((key) => !allowed.includes(key))) return false;
+  if (typeof value.candidate !== 'string' || value.candidate.length > 2000) return false;
+  if (value.sdpMid !== undefined && typeof value.sdpMid !== 'string') return false;
+  if (value.sdpMLineIndex !== undefined && !Number.isInteger(value.sdpMLineIndex)) return false;
+  return Buffer.byteLength(JSON.stringify(value), 'utf8') <= maxBytes;
+}
+
 module.exports = {
   MAX_MESSAGE_LENGTH,
   ALLOWED_INTERESTS,
@@ -51,4 +68,8 @@ module.exports = {
   sanitizeGender,
   sanitizeGenderPreference,
   isValidReason,
+  isUuidish,
+  isRoomId,
+  isSafeSdp,
+  isSafeIceCandidate,
 };

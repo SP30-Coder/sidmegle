@@ -5,6 +5,7 @@
  * - Blocks respected via blockService callback
  */
 const roomService = require('./roomService');
+const config = require('../config/security');
 
 const queue = []; // [{ socketId, sessionId, interests, gender, preferredGender, enqueuedAt }]
 const socketMeta = new Map(); // socketId -> { sessionId, interests, gender, preferredGender }
@@ -25,6 +26,7 @@ function pairKey(a, b) {
 }
 
 function enqueue(socketId, sessionId, interests = [], gender = null, preferredGender = 'any') {
+  if (queue.length >= config.MAX_QUEUE) return { ok: false, error: 'Matchmaking is temporarily full.' };
   const now = Date.now();
   const last = lastMatchAt.get(socketId) || 0;
   if (now - last < QUEUE_RATE_LIMIT_MS) {
@@ -153,6 +155,10 @@ async function tryMatch(io, getSessionId) {
     }
 
     const room = roomService.createRoom(A.socketId, B.socketId);
+    if (!room) {
+      queue.push(A, B);
+      break;
+    }
     recentPairs.set(pairKey(A.socketId, B.socketId), Date.now());
 
     // Deterministic initiator: lexicographically smaller socket id initiates offer
@@ -177,6 +183,17 @@ function handleDisconnect(socketId) {
   socketMeta.delete(socketId);
   lastMatchAt.delete(socketId);
 }
+
+setInterval(() => {
+  const cutoff = Date.now() - 5 * 60 * 1000;
+  for (let i = queue.length - 1; i >= 0; i--) {
+    if (queue[i].enqueuedAt < cutoff) {
+      socketMeta.delete(queue[i].socketId);
+      queue.splice(i, 1);
+    }
+  }
+  for (const [key, at] of recentPairs) if (at < cutoff) recentPairs.delete(key);
+}, 60000).unref();
 
 module.exports = {
   enqueue,

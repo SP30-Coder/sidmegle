@@ -2,55 +2,54 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const rateLimit = require('express-rate-limit');
 const { connectDB } = require('./config/database');
 const { applySecurity } = require('./middleware/security');
 const { registerSocketManager } = require('./sockets/socketManager');
 const roomService = require('./services/roomService');
 const matchmaking = require('./services/matchmakingService');
+const config = require('./config/security');
+const { isUuidish, isRoomId, sanitizeText, isValidReason } = require('./utils/validation');
 
 const PORT = process.env.PORT || 5000;
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
-
 const app = express();
 applySecurity(app);
 
 app.get('/health', (req, res) => {
-  res.json({ ok: true, uptime: process.uptime(), rooms: roomService.roomCount(), queue: matchmaking.queueSize() });
+  res.json({ ok: true });
 });
 
 app.get('/api/stats', (req, res) => {
+  if (!config.ADMIN_TOKEN || req.get('x-admin-token') !== config.ADMIN_TOKEN) return res.status(401).json({ ok: false, message: 'Unauthorized.' });
   res.json({ rooms: roomService.roomCount(), queue: matchmaking.queueSize() });
 });
 
-const reportLimiter = rateLimit({ windowMs: 60 * 1000, max: 10 });
-app.post('/api/report', reportLimiter, async (req, res) => {
+app.post('/api/report', async (req, res) => {
   const reportService = require('./services/reportService');
   const { sanitizeText, isValidReason } = require('./utils/validation');
   try {
     const { reporterSessionId, reportedSessionId, reason, details, roomId } = req.body || {};
-    if (!reporterSessionId || !reportedSessionId || !isValidReason(reason)) {
+    if (!isUuidish(reporterSessionId) || !isUuidish(reportedSessionId) || reporterSessionId === reportedSessionId || !isValidReason(reason) || (roomId && !isRoomId(roomId))) {
       return res.status(400).json({ ok: false, message: 'Invalid report payload.' });
     }
-    const saved = await reportService.createReport({
+    await reportService.createReport({
       reporterSessionId: String(reporterSessionId).slice(0, 100),
       reportedSessionId: String(reportedSessionId).slice(0, 100),
       reason,
       details: sanitizeText(details || '', 500),
       roomId: String(roomId || '').slice(0, 100),
     });
-    res.json({ ok: true, id: saved._id || null });
+    res.json({ ok: true });
   } catch (e) {
-    res.status(429).json({ ok: false, message: e.message });
+    const status = e.code === 'RATE_LIMIT' ? 429 : e.code === 'DUPLICATE' ? 409 : 500;
+    res.status(status).json({ ok: false, message: status === 500 ? 'Could not submit report.' : e.message });
   }
 });
 
 const server = http.createServer(app);
-const allowedOrigins = CLIENT_URL.split(',').map((s) => s.trim()).filter(Boolean);
-
 const io = new Server(server, {
-  cors: { origin: allowedOrigins.includes('*') ? '*' : allowedOrigins, methods: ['GET', 'POST'], credentials: true },
+  cors: { origin: config.ALLOWED_ORIGINS, methods: ['GET', 'POST'], credentials: false },
   transports: ['websocket', 'polling'],
+  maxHttpBufferSize: config.MAX_SOCKET_PAYLOAD_BYTES,
 });
 
 registerSocketManager(io);
@@ -58,6 +57,10 @@ registerSocketManager(io);
 connectDB(process.env.MONGODB_URI).then(() => {
   server.listen(PORT, () => {
     console.log(`[Server] StrangerConnect backend listening on :${PORT}`);
-    console.log(`[Server] CLIENT_URL=${CLIENT_URL}`);
   });
+});
+
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  res.status(err.status || 500).json({ ok: false, message: 'Internal server error.' });
 });

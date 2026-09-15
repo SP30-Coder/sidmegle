@@ -1,4 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
+const config = require('../config/security');
 
 // roomId -> { id, users: [socketIdA, socketIdB], createdAt }
 const rooms = new Map();
@@ -6,6 +7,7 @@ const rooms = new Map();
 const socketRoom = new Map();
 
 function createRoom(a, b) {
+  if (rooms.size >= config.MAX_ROOMS) return null;
   const id = `room_${uuidv4()}`;
   rooms.set(id, { id, users: [a, b], createdAt: Date.now() });
   socketRoom.set(a, id);

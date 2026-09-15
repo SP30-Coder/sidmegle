@@ -10,6 +10,11 @@ function isDbReady() {
 }
 
 async function createReport({ reporterSessionId, reportedSessionId, reason, details, roomId }) {
+  if (typeof reporterSessionId !== 'string' || typeof reportedSessionId !== 'string' || reporterSessionId === reportedSessionId) {
+    const err = new Error('Invalid report identities');
+    err.code = 'INVALID';
+    throw err;
+  }
   const now = Date.now();
   const last = lastReportAt.get(reporterSessionId) || 0;
   if (now - last < REPORT_COOLDOWN_MS) {
