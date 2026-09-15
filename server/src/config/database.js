@@ -28,9 +28,9 @@ function getDatabaseName(uri) {
   try {
     const parsed = new URL(uri);
     const pathName = parsed.pathname.replace(/^\/+/, '').trim();
-    return pathName || 'sidmegle';
+    return pathName || 'test';
   } catch (e) {
-    return 'sidmegle';
+    return 'test';
   }
 }
 
@@ -54,7 +54,7 @@ async function connectDB(uri) {
     console.error('[DB] MongoDB connection failed:', err.message);
     if (isAtlasSrvDnsError(mongoUri, err)) {
       console.warn(
-        '[DB] Atlas SRV DNS lookup failed. Check your internet/DNS/firewall, or use a local URI like mongodb://127.0.0.1:27017/sidmegle in server/.env.'
+        '[DB] Atlas SRV DNS lookup failed. Check your internet/DNS/firewall, or use a local URI like mongodb://127.0.0.1:27017/test in server/.env.'
       );
     }
     console.warn('[DB] Continuing without database. Chat still works; reports/blocks fall back to memory.');
